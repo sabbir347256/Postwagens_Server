@@ -1,0 +1,27 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.postRoutes = void 0;
+const express_1 = __importDefault(require("express"));
+const validateRequest_1 = require("../../middlewares/validateRequest");
+const post_validation_1 = require("./post.validation");
+const post_controller_1 = require("./post.controller");
+const auth_middleware_1 = require("../../middlewares/auth.middleware");
+const user_interface_1 = require("../users/user.interface");
+const multer_config_1 = require("../../config/multer.config");
+const like_routes_1 = require("../likes/like.routes");
+const comment_routes_1 = require("../comments/comment.routes");
+const router = express_1.default.Router();
+router.post('/', (0, auth_middleware_1.checkAuth)(...Object.values(user_interface_1.Role)), multer_config_1.multerUpload.array('imagesAndVideos'), (0, validateRequest_1.validateRequest)(post_validation_1.createPostZodSchema), post_controller_1.postControllers.createPost);
+router.get('/', (0, auth_middleware_1.checkAuth)(...Object.values(user_interface_1.Role)), post_controller_1.postControllers.getAllPosts);
+router.get('/my-posts', (0, auth_middleware_1.checkAuth)(...Object.values(user_interface_1.Role)), post_controller_1.postControllers.getMyPosts);
+router.get('/user/:userId', (0, auth_middleware_1.checkAuth)(...Object.values(user_interface_1.Role)), post_controller_1.postControllers.getPostsByUserId);
+router.delete('/media', (0, auth_middleware_1.checkAuth)(...Object.values(user_interface_1.Role)), (0, validateRequest_1.validateRequest)(post_validation_1.deletePostMediaZodSchema, 'query'), post_controller_1.postControllers.deletePostMedia);
+router.use('/:id', like_routes_1.LikeRoutes);
+router.use('/:id', comment_routes_1.PostCommentRoutes);
+router.get('/:id', (0, auth_middleware_1.checkAuth)(...Object.values(user_interface_1.Role)), post_controller_1.postControllers.getSinglePost);
+router.patch('/:id', (0, auth_middleware_1.checkAuth)(...Object.values(user_interface_1.Role)), multer_config_1.multerUpload.array('imagesAndVideos'), (0, validateRequest_1.validateRequest)(post_validation_1.updatePostZodSchema), post_controller_1.postControllers.updatePost);
+router.delete('/:id', (0, auth_middleware_1.checkAuth)(...Object.values(user_interface_1.Role)), post_controller_1.postControllers.deletePost);
+exports.postRoutes = router;

@@ -1,0 +1,21 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.CommentRoutes = exports.PostCommentRoutes = void 0;
+const express_1 = __importDefault(require("express"));
+const comment_controller_1 = require("./comment.controller");
+const auth_middleware_1 = require("../../middlewares/auth.middleware");
+const validateRequest_1 = require("../../middlewares/validateRequest");
+const comment_validation_1 = require("./comment.validation");
+const user_interface_1 = require("../users/user.interface");
+const postCommentRouter = express_1.default.Router({ mergeParams: true });
+exports.PostCommentRoutes = postCommentRouter;
+postCommentRouter.post('/comments', (0, auth_middleware_1.checkAuth)(...Object.values(user_interface_1.Role)), (0, validateRequest_1.validateRequest)(comment_validation_1.CommentValidation.createCommentSchema), comment_controller_1.CommentController.createComment);
+postCommentRouter.get('/comments', comment_controller_1.CommentController.getCommentsForPost);
+const commentRouter = express_1.default.Router();
+exports.CommentRoutes = commentRouter;
+commentRouter.get('/:commentId/replies', comment_controller_1.CommentController.getCommentReplies);
+commentRouter.patch('/:commentId', (0, auth_middleware_1.checkAuth)(...Object.values(user_interface_1.Role)), (0, validateRequest_1.validateRequest)(comment_validation_1.CommentValidation.updateCommentSchema), comment_controller_1.CommentController.updateComment);
+commentRouter.delete('/:commentId', (0, auth_middleware_1.checkAuth)(...Object.values(user_interface_1.Role)), comment_controller_1.CommentController.deleteComment);

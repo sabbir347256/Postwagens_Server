@@ -1,7 +1,5 @@
 import { Types } from 'mongoose';
 
-import { Types } from 'mongoose';
-
 export interface IBoost {
   listingId: Types.ObjectId;
   userId: Types.ObjectId;

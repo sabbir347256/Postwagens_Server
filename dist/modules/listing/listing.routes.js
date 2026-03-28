@@ -1,0 +1,24 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.listingRoutes = void 0;
+const express_1 = __importDefault(require("express"));
+const validateRequest_1 = require("../../middlewares/validateRequest");
+const listing_validate_1 = require("./listing.validate");
+const listing_controller_1 = require("./listing.controller");
+const auth_middleware_1 = require("../../middlewares/auth.middleware");
+const user_interface_1 = require("../users/user.interface");
+const multer_config_1 = require("../../config/multer.config");
+const router = express_1.default.Router();
+router.post('/', (0, auth_middleware_1.checkAuth)(...Object.values(user_interface_1.Role)), multer_config_1.multerUpload.array('imagesAndVideos'), (0, validateRequest_1.validateRequest)(listing_validate_1.createListingZodSchema), listing_controller_1.listingControllers.createListing);
+router.get('/my-listings', (0, auth_middleware_1.checkAuth)(...Object.values(user_interface_1.Role)), listing_controller_1.listingControllers.getMyListings);
+router.get('/user/:userId', (0, auth_middleware_1.checkAuth)(...Object.values(user_interface_1.Role)), listing_controller_1.listingControllers.getListingsByUserId);
+router.get('/', (0, auth_middleware_1.checkAuth)(...Object.values(user_interface_1.Role)), listing_controller_1.listingControllers.getAllListings);
+router.delete('/media', (0, auth_middleware_1.checkAuth)(...Object.values(user_interface_1.Role)), (0, validateRequest_1.validateRequest)(listing_validate_1.deleteListingMediaZodSchema, 'query'), listing_controller_1.listingControllers.deleteListingMedia);
+router.get('/:id/analytics', (0, auth_middleware_1.checkAuth)(...Object.values(user_interface_1.Role)), listing_controller_1.listingControllers.getListingAnalytics);
+router.get('/:id', (0, auth_middleware_1.checkAuth)(...Object.values(user_interface_1.Role)), listing_controller_1.listingControllers.getSingleListing);
+router.patch('/:id', (0, auth_middleware_1.checkAuth)(...Object.values(user_interface_1.Role)), multer_config_1.multerUpload.array('imagesAndVideos'), (0, validateRequest_1.validateRequest)(listing_validate_1.updateListingZodSchema), listing_controller_1.listingControllers.updateListing);
+router.delete('/:id', (0, auth_middleware_1.checkAuth)(...Object.values(user_interface_1.Role)), listing_controller_1.listingControllers.deleteListing);
+exports.listingRoutes = router;
