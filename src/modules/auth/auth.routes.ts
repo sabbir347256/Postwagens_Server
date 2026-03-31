@@ -31,7 +31,6 @@ router.get(
   authController.googleCallback
 );
 
-// APPLE LOGIN HANDLE
 router.get('/apple', authController.appleLogin);
 router.get('/apple/callback',
   passport.authenticate('apple', { failureRedirect: '/login' }),
