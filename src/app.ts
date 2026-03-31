@@ -19,18 +19,17 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 // app.use(safeSanitizeMiddleware);
 
-// THROTTLING
-const limiter = rateLimit({
-  windowMs: env.REQUEST_RATE_LIMIT_TIME * 60 * 1000, // Assuming time in minutes from env
-  max: env.REQUEST_RATE_LIMIT,
-  message: {
-    success: false,
-    statusCode: 400,
-    message: 'Too many requests, please try again later.',
-  },
-});
+// const limiter = rateLimit({
+//   windowMs: env.REQUEST_RATE_LIMIT_TIME * 60 * 1000, 
+//   max: env.REQUEST_RATE_LIMIT,
+//   message: {
+//     success: false,
+//     statusCode: 400,
+//     message: 'Too many requests, please try again later.',
+//   },
+// });
 
-app.use(limiter);
+// app.use(limiter);
 
 // GLOBAL ROUTES
 app.use('/api/v1', router);
