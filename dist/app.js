@@ -22,15 +22,7 @@ app.use((0, cookie_parser_1.default)());
 app.use(express_1.default.urlencoded({ extended: true }));
 // app.use(safeSanitizeMiddleware);
 // THROTTLING
-const limiter = (0, express_rate_limit_1.default)({
-    windowMs: env_1.default.REQUEST_RATE_LIMIT_TIME * 60 * 1000, // Assuming time in minutes from env
-    max: env_1.default.REQUEST_RATE_LIMIT,
-    message: {
-        success: false,
-        statusCode: 400,
-        message: 'Too many requests, please try again later.',
-    },
-});
+
 app.use(limiter);
 // GLOBAL ROUTES
 app.use('/api/v1', routes_1.router);
