@@ -1,9 +1,10 @@
 /* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
-import stream from 'stream';
-import AppError from '../errorHelpers/AppError';
-import env from './env';
+import { v2 as cloudinary, UploadApiResponse } from "cloudinary";
+import stream from "stream";
+import AppError from "../errorHelpers/AppError";
+import env from "./env";
+import streamifier from 'streamifier';
 
 cloudinary.config({
   cloud_name: env?.CLOUDINARY_NAME,
@@ -13,7 +14,7 @@ cloudinary.config({
 
 export const uploadBufferToCloudinary = async (
   buffer: Buffer,
-  fileName: string
+  fileName: string,
 ): Promise<UploadApiResponse | undefined> => {
   try {
     return new Promise((resolve, reject) => {
@@ -25,16 +26,16 @@ export const uploadBufferToCloudinary = async (
       cloudinary.uploader
         .upload_stream(
           {
-            resource_type: 'auto',
+            resource_type: "auto",
             public_id: public_id,
-            folder: 'images',
+            folder: "images",
           },
           (error, result) => {
             if (error) {
               return reject(error);
             }
             resolve(result);
-          }
+          },
         )
         .end(buffer);
     });
@@ -44,6 +45,27 @@ export const uploadBufferToCloudinary = async (
   }
 };
 
+export const uploadBufferToCloudinaryNew = async (
+  buffer: Buffer,
+  fileName: string
+): Promise<UploadApiResponse | undefined> => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        resource_type: 'auto',
+        folder: 'images',
+        public_id: `${fileName.split('.')[0]}-${Date.now()}`,
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+
+    // সরাসরি বাফার লিখে স্ট্রিম শেষ করুন
+    uploadStream.end(buffer);
+  });
+};
 export const deleteImageFromCLoudinary = async (url: string) => {
   try {
     if (!url) {
@@ -57,7 +79,7 @@ export const deleteImageFromCLoudinary = async (url: string) => {
       await cloudinary.uploader.destroy(public_id);
     }
   } catch (error: any) {
-    throw new AppError(401, 'Cloudinary image deletion failed', error.message);
+    throw new AppError(401, "Cloudinary image deletion failed", error.message);
   }
 };
 

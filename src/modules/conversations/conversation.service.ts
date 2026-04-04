@@ -1,6 +1,6 @@
 import { StatusCodes } from 'http-status-codes';
 import AppError from '../../errorHelpers/AppError';
-import { uploadBufferToCloudinary } from '../../config/cloudinary.config';
+import { uploadBufferToCloudinary, uploadBufferToCloudinaryNew } from '../../config/cloudinary.config';
 import { Conversation } from './conversation.model';
 import { getSocketIo } from '../../socket/socket';
 import { Message } from './message.model';
@@ -23,6 +23,8 @@ const sendMessage = async (
     ],
   });
 
+  console.log('file', file)
+
   if (!conversation) {
     conversation = await Conversation.create({
       participantAId: senderId,
@@ -42,6 +44,9 @@ const sendMessage = async (
 
   let mediaUrl: string | undefined;
   if (file) {
+   console.log("File detected:", file.originalname);
+    console.log("Buffer length:", file.buffer ? file.buffer.length : "NO BUFFER FOUND");
+
     const uploadResult = await uploadBufferToCloudinary(file.buffer, file.originalname);
     mediaUrl = uploadResult?.secure_url;
   }
