@@ -4,6 +4,7 @@ import { ConversationService } from "./conversation.service";
 import { SendResponse } from "../../utils/SendResponse";
 
 const sendMessage = CatchAsync(async (req, res) => {
+  console.log('sensdlakfj')
   const { participantBId, text, listingId } = req.body;
   // @ts-ignore
   const senderId = req.user.userId;
