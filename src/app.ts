@@ -25,7 +25,7 @@ app.use('/api/v1', router);
 app.get("/", (_, res: Response) => {
   res.json({
     status: "success",
-    message: "I am alive! 🎉",
+    message: "Welcome to Postwagens Server..............",
   })
 });
 
