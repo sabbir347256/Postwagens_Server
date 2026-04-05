@@ -67,8 +67,8 @@ if (file) {
       console.log("HEIC detected, converting...");
 
       buffer = await convert({
-        buffer: file.buffer, // input buffer
-        format: "JPEG", // output format
+        buffer: file.buffer, 
+        format: "JPEG",
         quality: 0.9,
       });
 
