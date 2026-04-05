@@ -6,11 +6,8 @@ import { SendResponse } from "../../utils/SendResponse";
 const sendMessage = CatchAsync(async (req, res) => {
   console.log('sensdlakfj')
   const { participantBId, text, listingId } = req.body;
-  // @ts-ignore
   const senderId = req.user.userId;
   const file = req.file;
-//   console.log('only req',req);
-//   console.log("adf", req.body);
 
   const result = await ConversationService.sendMessage(
     senderId,
