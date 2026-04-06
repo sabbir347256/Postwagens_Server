@@ -25,7 +25,7 @@ router.get(
   checkAuth(...Object.values(Role)),
   listingControllers.getMyListings,
 );
-router.get(
+router.get( 
   '/user/:userId',
   checkAuth(...Object.values(Role)),
   listingControllers.getListingsByUserId,

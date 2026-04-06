@@ -7,13 +7,21 @@ import { NotificationHelper } from './notification.helper';
 
 
 const createNotification = async (payload: INotification) => {
+
+  console.log("createNotification called");
+  console.log("payload:", payload);
+
   const notification = await Notification.create(payload);
 
   if (!notification.userId) {
+    console.log("No notification.userId");
     return notification;
   }
 
   const userId = notification.userId.toString();
+
+    console.log("notification userId:", userId);
+  console.log("isUserOnline:", isUserOnline(userId));
 
   await notification.populate([
     {
@@ -44,10 +52,12 @@ const createNotification = async (payload: INotification) => {
     },
   ]);
 
-  const message =
-    await NotificationHelper.generateNotificationMessage(notification);
+  const message = await NotificationHelper.generateNotificationMessage(notification);
+
+     console.log("generated notification message:", message);
 
   if (isUserOnline(userId)) {
+      console.log("Emitting new_notification to:", userId);
     const io = getSocketIo();
     io.to(userId).emit('new_notification', {
       ...notification.toObject(),
@@ -69,7 +79,7 @@ const createNotification = async (payload: INotification) => {
 
       try {
         // @ts-ignore
-        await fcm.send(fcmMessage);
+        await fcm.messaging().send(fcmMessage);
       } catch (error) {
         console.error('Error sending FCM message:', error);
       }
