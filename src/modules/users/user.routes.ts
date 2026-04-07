@@ -9,7 +9,6 @@ import { FollowController } from '../follow/follow.controller';
 
 const router = express.Router();
 
-// USER REGISTRATION
 router.post(
   '/registration',
   validateRequest(userZodSchema),

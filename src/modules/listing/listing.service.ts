@@ -1,23 +1,24 @@
-import { StatusCodes } from 'http-status-codes';
-import AppError from '../../errorHelpers/AppError';
-import { QueryBuilder } from '../../utils/QueryBuilder';
-import { IImageAndVideo, IListing } from './listing.interface';
-import Listing from './listing.model';
-import { JwtPayload } from 'jsonwebtoken';
+import { StatusCodes } from "http-status-codes";
+import AppError from "../../errorHelpers/AppError";
+import { QueryBuilder } from "../../utils/QueryBuilder";
+import { IImageAndVideo, IListing } from "./listing.interface";
+import Listing from "./listing.model";
+import { JwtPayload } from "jsonwebtoken";
 import {
   deleteImageFromCLoudinary,
   uploadBufferToCloudinary,
-} from '../../config/cloudinary.config';
-import mongoose from 'mongoose';
-import { Follow } from '../follow/follow.model';
-import { NotificationService } from '../notifications/notifications.service';
-import { NotificationType } from '../notifications/notifications.interface';
+} from "../../config/cloudinary.config";
+import mongoose from "mongoose";
+import { Follow } from "../follow/follow.model";
+import { NotificationService } from "../notifications/notifications.service";
+import { NotificationType } from "../notifications/notifications.interface";
+import BlockedUserModel from "../userBlocked/userBlocked.model";
 
 // Create Listing
 const createListingService = async (
   payload: IListing,
   user: JwtPayload,
-  files: Express.Multer.File[]
+  files: Express.Multer.File[],
 ) => {
   payload.sellerId = user.userId;
 
@@ -26,11 +27,11 @@ const createListingService = async (
     for (const file of files) {
       const uploadedFile = await uploadBufferToCloudinary(
         file.buffer,
-        file.originalname
+        file.originalname,
       );
       if (uploadedFile) {
         imagesAndVideos.push({
-          type: file.mimetype.startsWith('image') ? 'image' : 'video',
+          type: file.mimetype.startsWith("image") ? "image" : "video",
           url: uploadedFile.secure_url,
         });
       }
@@ -60,8 +61,8 @@ const createListingService = async (
 // Get My Listings
 const getMyListingsService = async (user: JwtPayload) => {
   const listings = await Listing.find({ sellerId: user.userId }).populate({
-    path: 'seller',
-    select: 'fullName email avatar',
+    path: "seller",
+    select: "fullName email avatar",
   });
   return listings;
 };
@@ -69,20 +70,19 @@ const getMyListingsService = async (user: JwtPayload) => {
 // Get Listings By User Id
 const getListingsByUserIdService = async (userId: string) => {
   const listings = await Listing.find({ sellerId: userId }).populate({
-    path: 'seller',
-    select: 'fullName email avatar',
+    path: "seller",
+    select: "fullName email avatar",
   });
   return listings;
 };
 
-// Get All Listings
 const getAllListingsService = async (
   query: Record<string, any>,
   user?: JwtPayload,
 ) => {
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 10;
-  const sort = query.sort || '-createdAt';
+  const sort = query.sort || "-createdAt";
   const searchTerm = query.searchTerm;
 
   const pipeline: any[] = [];
@@ -96,8 +96,7 @@ const getAllListingsService = async (
     });
   }
 
-  // Other filters
-  const excludeField = ['page', 'limit', 'sort', 'fields', 'searchTerm'];
+  const excludeField = ["page", "limit", "sort", "fields", "searchTerm"];
   const filter: Record<string, any> = {};
   for (const key in query) {
     if (!excludeField.includes(key)) {
@@ -108,50 +107,81 @@ const getAllListingsService = async (
     pipeline.push({ $match: filter });
   }
 
-  // Join with users
+  // Join with users (seller details)
   pipeline.push({
     $lookup: {
-      from: 'users',
-      localField: 'sellerId',
-      foreignField: '_id',
-      as: 'seller',
+      from: "users",
+      localField: "sellerId",
+      foreignField: "_id",
+      as: "seller",
     },
   });
 
   pipeline.push({
-    $unwind: '$seller',
+    $unwind: "$seller",
   });
 
   if (user) {
-    // Join with bookmarks
     pipeline.push({
       $lookup: {
-        from: 'bookmarks',
-        let: { listingId: '$_id' },
+        from: "bookmarks",
+        let: { listingId: "$_id" },
         pipeline: [
           {
             $match: {
               $expr: {
                 $and: [
-                  { $eq: ['$listingId', '$$listingId'] },
+                  { $eq: ["$listingId", "$$listingId"] },
                   {
-                    $eq: [
-                      '$userId',
-                      new mongoose.Types.ObjectId(user.userId),
-                    ],
+                    $eq: ["$userId", new mongoose.Types.ObjectId(user.userId)],
                   },
                 ],
               },
             },
           },
         ],
-        as: 'userBookmark',
+        as: "userBookmark",
       },
     });
+
     // Add isBookmarked field
     pipeline.push({
       $addFields: {
-        isBookmarked: { $gt: [{ $size: '$userBookmark' }, 0] },
+        isBookmarked: { $gt: [{ $size: "$userBookmark" }, 0] },
+      },
+    });
+
+    // Exclude listings that are blocked by the user
+    pipeline.push({
+      $lookup: {
+        from: "blockedusers", // Use BlockedUserModel collection
+        let: { sellerId: "$seller._id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$blockedUserid", "$$sellerId"] },
+                  { 
+                    $eq: [
+                      "$blockerUserid", 
+                      new mongoose.Types.ObjectId(user.userId),
+                    ],
+                  },
+                  { $eq: ["$isBlocked", true] }, // Ensure that it's a blocked relationship
+                ],
+              },
+            },
+          },
+        ],
+        as: "blocked",
+      },
+    });
+
+    // Filter out blocked listings
+    pipeline.push({
+      $match: {
+        blocked: { $size: 0 }, // Only show listings that are not blocked
       },
     });
   } else {
@@ -165,7 +195,7 @@ const getAllListingsService = async (
   // Sorting
   const sortStage: Record<string, any> = {};
   if (sort) {
-    const [field, order] = sort.startsWith('-')
+    const [field, order] = sort.startsWith("-")
       ? [sort.slice(1), -1]
       : [sort, 1];
     sortStage[field] = order;
@@ -180,7 +210,7 @@ const getAllListingsService = async (
   pipeline.push({
     $project: {
       userBookmark: 0,
-      'seller.password': 0,
+      "seller.password": 0,
     },
   });
 
@@ -210,45 +240,42 @@ const getSingleListingService = async (id: string, user?: JwtPayload) => {
     },
     {
       $lookup: {
-        from: 'users',
-        localField: 'sellerId',
-        foreignField: '_id',
-        as: 'seller',
+        from: "users",
+        localField: "sellerId",
+        foreignField: "_id",
+        as: "seller",
       },
     },
     {
-      $unwind: '$seller',
+      $unwind: "$seller",
     },
   ];
 
   if (user) {
     pipeline.push({
       $lookup: {
-        from: 'bookmarks',
-        let: { listingId: '$_id' },
+        from: "bookmarks",
+        let: { listingId: "$_id" },
         pipeline: [
           {
             $match: {
               $expr: {
                 $and: [
-                  { $eq: ['$listingId', '$$listingId'] },
+                  { $eq: ["$listingId", "$$listingId"] },
                   {
-                    $eq: [
-                      '$userId',
-                      new mongoose.Types.ObjectId(user.userId),
-                    ],
+                    $eq: ["$userId", new mongoose.Types.ObjectId(user.userId)],
                   },
                 ],
               },
             },
           },
         ],
-        as: 'userBookmark',
+        as: "userBookmark",
       },
     });
     pipeline.push({
       $addFields: {
-        isBookmarked: { $gt: [{ $size: '$userBookmark' }, 0] },
+        isBookmarked: { $gt: [{ $size: "$userBookmark" }, 0] },
       },
     });
   } else {
@@ -265,14 +292,14 @@ const getSingleListingService = async (id: string, user?: JwtPayload) => {
   pipeline.push({
     $project: {
       userBookmark: 0,
-      'seller.password': 0,
+      "seller.password": 0,
     },
   });
 
   const result = await Listing.aggregate(pipeline);
 
   if (result.length === 0) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Listing not found');
+    throw new AppError(StatusCodes.NOT_FOUND, "Listing not found");
   }
 
   return result[0];
@@ -288,13 +315,13 @@ const updateListingService = async (
   const listing = await Listing.findById(id);
 
   if (!listing) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Listing not found');
+    throw new AppError(StatusCodes.NOT_FOUND, "Listing not found");
   }
 
   if (listing.sellerId.toString() !== user.userId) {
     throw new AppError(
       StatusCodes.FORBIDDEN,
-      'You are not authorized to update this listing',
+      "You are not authorized to update this listing",
     );
   }
 
@@ -313,7 +340,7 @@ const updateListingService = async (
       );
       if (uploadedFile) {
         listing.imagesAndVideos.push({
-          type: file.mimetype.startsWith('image') ? 'image' : 'video',
+          type: file.mimetype.startsWith("image") ? "image" : "video",
           url: uploadedFile.secure_url,
         });
       }
@@ -330,13 +357,13 @@ const deleteListingService = async (id: string, user: JwtPayload) => {
   const listing = await Listing.findById(id);
 
   if (!listing) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Listing not found');
+    throw new AppError(StatusCodes.NOT_FOUND, "Listing not found");
   }
 
   if (listing.sellerId.toString() !== user.userId) {
     throw new AppError(
       StatusCodes.FORBIDDEN,
-      'You are not authorized to delete this listing',
+      "You are not authorized to delete this listing",
     );
   }
 
@@ -361,13 +388,13 @@ const deleteListingMediaService = async (
   const listing = await Listing.findById(listingId);
 
   if (!listing) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Listing not found');
+    throw new AppError(StatusCodes.NOT_FOUND, "Listing not found");
   }
 
   if (listing.sellerId.toString() !== user.userId) {
     throw new AppError(
       StatusCodes.FORBIDDEN,
-      'You are not authorized to delete media from this listing',
+      "You are not authorized to delete media from this listing",
     );
   }
 
@@ -393,7 +420,7 @@ const getListingAnalyticsService = async (id: string) => {
   const listing = await Listing.findById(id);
 
   if (!listing) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Listing not found');
+    throw new AppError(StatusCodes.NOT_FOUND, "Listing not found");
   }
 
   // engagement analytics for last 7 days, last 1 month
@@ -417,31 +444,28 @@ const getListingAnalyticsService = async (id: string) => {
         inquiryCount: 1,
         engagementLast7Days: {
           $cond: [
-            { $gte: ['$createdAt', oneWeekAgo] },
-            { $add: ['$viewCount', '$inquiryCount'] },
+            { $gte: ["$createdAt", oneWeekAgo] },
+            { $add: ["$viewCount", "$inquiryCount"] },
             0,
           ],
         },
         engagementLast1Month: {
           $cond: [
-            { $gte: ['$createdAt', oneMonthAgo] },
-            { $add: ['$viewCount', '$inquiryCount'] },
+            { $gte: ["$createdAt", oneMonthAgo] },
+            { $add: ["$viewCount", "$inquiryCount"] },
             0,
           ],
         },
         engagementLast1Year: {
           $cond: [
-            { $gte: ['$createdAt', oneYearAgo] },
-            { $add: ['$viewCount', '$inquiryCount'] },
+            { $gte: ["$createdAt", oneYearAgo] },
+            { $add: ["$viewCount", "$inquiryCount"] },
             0,
           ],
         },
       },
     },
   ]);
-
-
-
 
   return {
     ...engagementResult[0],

@@ -10,6 +10,8 @@ import { ConversationRoutes } from '../modules/conversations/conversation.routes
 import { NotificationRoutes } from '../modules/notifications/notifications.routes';
 import { NotificationPreferenceRoutes } from '../modules/notification_preferences/notification_preferences.routes';
 import { AnalyticsRoutes } from '../modules/analytics/analytics.routes';
+import { userBlocked } from '../modules/userBlocked/userBlocked.routes';
+import { userReport } from '../modules/userReport/userReport.routes';
 
 export const router = Router();
 
@@ -58,6 +60,14 @@ const moduleRoutes = [
   {
     path: '/admin/analytics',
     route: AnalyticsRoutes,
+  },
+  {
+    path: '/userBlockedService',
+    route: userBlocked,
+  },
+  {
+    path: '/reports',
+    route: userReport,
   },
 ];
 
