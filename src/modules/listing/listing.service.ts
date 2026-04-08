@@ -154,7 +154,7 @@ const getAllListingsService = async (
     // Exclude listings that are blocked by the user
     pipeline.push({
       $lookup: {
-        from: "blockedusers", // Use BlockedUserModel collection
+        from: "blockedusers",
         let: { sellerId: "$seller._id" },
         pipeline: [
           {
@@ -162,9 +162,9 @@ const getAllListingsService = async (
               $expr: {
                 $and: [
                   { $eq: ["$blockedUserid", "$$sellerId"] },
-                  { 
+                  {
                     $eq: [
-                      "$blockerUserid", 
+                      "$blockerUserid",
                       new mongoose.Types.ObjectId(user.userId),
                     ],
                   },
@@ -178,10 +178,36 @@ const getAllListingsService = async (
       },
     });
 
-    // Filter out blocked listings
     pipeline.push({
       $match: {
-        blocked: { $size: 0 }, // Only show listings that are not blocked
+        blocked: { $size: 0 }, 
+      },
+    });
+
+       pipeline.push({
+      $lookup: {
+        from: "reportedusers",
+        let: { listingID: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$id", "$$listingID"] },  // Matching the listing ID with reported users
+                  { $eq: ["$type", "listing"] },     // Ensure it is of type "listing"
+                ],
+              },
+            },
+          },
+        ],
+        as: "reported",
+      },
+    });
+
+    // Filter out reported listings (only show listings that are not reported)
+    pipeline.push({
+      $match: {
+        reported: { $size: 0 }, 
       },
     });
   } else {
@@ -229,7 +255,6 @@ const getAllListingsService = async (
     result,
   };
 };
-
 // Get Single Listing
 const getSingleListingService = async (id: string, user?: JwtPayload) => {
   const pipeline: any[] = [

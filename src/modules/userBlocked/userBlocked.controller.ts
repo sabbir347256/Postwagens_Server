@@ -3,9 +3,10 @@ import { CatchAsync } from "../../utils/CatchAsync";
 import { SendResponse } from "../../utils/SendResponse";
 import { blockedService } from "./userBlocked.service";
 import jwt, { JwtPayload } from "jsonwebtoken";
+import { Follow } from "../follow/follow.model";
 
 const blockUser = CatchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const { blockedId } = req.body;
 
     if (!blockedId) {
@@ -18,9 +19,23 @@ const blockUser = CatchAsync(
     }
 
     const blockerUser = req.user as JwtPayload;
-    const blockerID = blockerUser.userId;
+    let blockerID = blockerUser.userId;
 
     const result = await blockedService.blockUser(blockerID, blockedId);
+
+    if (blockerID) {
+      const followRelationship = await Follow.findOne({
+        follower: blockerID,
+      });
+
+      if (followRelationship) {
+        await Follow.deleteOne({ _id: followRelationship._id });
+
+        return res.status(200).json({
+          message: "User reported, blocked, and follow relationship removed",
+        });
+      }
+    }
 
     SendResponse(res, {
       success: true,
@@ -28,6 +43,8 @@ const blockUser = CatchAsync(
       message: "User blocked successfully",
       data: result,
     });
+
+    return;
   },
 );
 

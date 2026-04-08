@@ -1,17 +1,16 @@
-import { StatusCodes } from 'http-status-codes';
-import AppError from '../../errorHelpers/AppError';
-import { QueryBuilder } from '../../utils/QueryBuilder';
-import { IImageAndVideo, TPost } from './post.interface';
-import Post from './post.model';
-import { JwtPayload } from 'jsonwebtoken';
+import { StatusCodes } from "http-status-codes";
+import AppError from "../../errorHelpers/AppError";
+import { QueryBuilder } from "../../utils/QueryBuilder";
+import { IImageAndVideo, TPost } from "./post.interface";
+import Post from "./post.model";
+import { JwtPayload } from "jsonwebtoken";
 import {
   deleteImageFromCLoudinary,
   uploadBufferToCloudinary,
-} from '../../config/cloudinary.config';
-import '../users/user.model';
-import { BoostService } from '../boosts/boost.service';
-import mongoose from 'mongoose';
-
+} from "../../config/cloudinary.config";
+import "../users/user.model";
+import { BoostService } from "../boosts/boost.service";
+import mongoose from "mongoose";
 
 // Create Post
 const createPostService = async (
@@ -30,7 +29,7 @@ const createPostService = async (
       );
       if (uploadedFile) {
         imagesAndVideos.push({
-          type: file.mimetype.startsWith('image') ? 'image' : 'video',
+          type: file.mimetype.startsWith("image") ? "image" : "video",
           url: uploadedFile.secure_url,
         });
       }
@@ -45,8 +44,8 @@ const createPostService = async (
 // Get My Posts
 const getMyPostsService = async (user: JwtPayload) => {
   const posts = await Post.find({ userId: user.userId }).populate(
-    'userId',
-    'fullName email',
+    "userId",
+    "fullName email",
   );
   return posts;
 };
@@ -54,12 +53,11 @@ const getMyPostsService = async (user: JwtPayload) => {
 // Get Posts By User Id
 const getPostsByUserIdService = async (userId: string) => {
   const posts = await Post.find({ userId: userId }).populate(
-    'userId',
-    'fullName email',
+    "userId",
+    "fullName email",
   );
   return posts;
 };
-
 
 // Get All Posts
 const getAllPostsService = async (
@@ -68,7 +66,7 @@ const getAllPostsService = async (
 ) => {
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 10;
-  const sort = query.sort || '-createdAt';
+  const sort = query.sort || "-createdAt";
   const searchTerm = query.searchTerm;
 
   const pipeline: any[] = [];
@@ -76,16 +74,16 @@ const getAllPostsService = async (
   // Join with users
   pipeline.push({
     $lookup: {
-      from: 'users',
-      localField: 'userId',
-      foreignField: '_id',
-      as: 'user',
+      from: "users",
+      localField: "userId",
+      foreignField: "_id",
+      as: "user",
     },
   });
 
   // Deconstruct user array
   pipeline.push({
-    $unwind: '$user',
+    $unwind: "$user",
   });
 
   // Text search
@@ -93,15 +91,15 @@ const getAllPostsService = async (
     pipeline.push({
       $match: {
         $or: [
-          { text: { $regex: searchTerm, $options: 'i' } },
-          { 'user.fullName': { $regex: searchTerm, $options: 'i' } },
+          { text: { $regex: searchTerm, $options: "i" } },
+          { "user.fullName": { $regex: searchTerm, $options: "i" } },
         ],
       },
     });
   }
 
   // Other filters (excluding reserved keywords)
-  const excludeField = ['page', 'limit', 'sort', 'fields', 'searchTerm'];
+  const excludeField = ["page", "limit", "sort", "fields", "searchTerm"];
   const filter: Record<string, any> = {};
   for (const key in query) {
     if (!excludeField.includes(key)) {
@@ -115,20 +113,20 @@ const getAllPostsService = async (
   // Join with likes to count
   pipeline.push({
     $lookup: {
-      from: 'likes',
-      localField: '_id',
-      foreignField: 'postId',
-      as: 'likes',
+      from: "likes",
+      localField: "_id",
+      foreignField: "postId",
+      as: "likes",
     },
   });
 
   // Join with comments to count
   pipeline.push({
     $lookup: {
-      from: 'comments',
-      localField: '_id',
-      foreignField: 'postId',
-      as: 'comments',
+      from: "comments",
+      localField: "_id",
+      foreignField: "postId",
+      as: "comments",
     },
   });
 
@@ -136,39 +134,71 @@ const getAllPostsService = async (
     // Join with user's like
     pipeline.push({
       $lookup: {
-        from: 'likes',
-        let: { postId: '$_id' },
+        from: "likes",
+        let: { postId: "$_id" },
         pipeline: [
           {
             $match: {
               $expr: {
                 $and: [
-                  { $eq: ['$postId', '$$postId'] },
+                  { $eq: ["$postId", "$$postId"] },
                   {
-                    $eq: ['$userId', new mongoose.Types.ObjectId(user.userId)],
+                    $eq: ["$userId", new mongoose.Types.ObjectId(user.userId)],
                   },
                 ],
               },
             },
           },
         ],
-        as: 'userLike',
+        as: "userLike",
       },
     });
-    // Add isLiked, likeCount, commentCount fields
     pipeline.push({
       $addFields: {
-        isLiked: { $gt: [{ $size: '$userLike' }, 0] },
-        likeCount: { $size: '$likes' },
-        commentCount: { $size: '$comments' },
+        isLiked: { $gt: [{ $size: "$userLike" }, 0] },
+        likeCount: { $size: "$likes" },
+        commentCount: { $size: "$comments" },
+      },
+    });
+
+    pipeline.push({
+      $lookup: {
+        from: "blockedusers", 
+        let: { sellerId: "$user._id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$blockedUserid", "$$sellerId"] },
+                  {
+                    $eq: [
+                      "$blockerUserid",
+                      new mongoose.Types.ObjectId(user.userId),
+                    ],
+                  },
+                  { $eq: ["$isBlocked", true] },
+                ],
+              },
+            },
+          },
+        ],
+        as: "blocked",
+      },
+    });
+
+    // Filter out blocked listings
+    pipeline.push({
+      $match: {
+        blocked: { $size: 0 }, // Only show listings that are not blocked
       },
     });
   } else {
     pipeline.push({
       $addFields: {
         isLiked: false,
-        likeCount: { $size: '$likes' },
-        commentCount: { $size: '$comments' },
+        likeCount: { $size: "$likes" },
+        commentCount: { $size: "$comments" },
       },
     });
   }
@@ -176,7 +206,7 @@ const getAllPostsService = async (
   // Sorting
   const sortStage: Record<string, any> = {};
   if (sort) {
-    const [field, order] = sort.startsWith('-')
+    const [field, order] = sort.startsWith("-")
       ? [sort.slice(1), -1]
       : [sort, 1];
     sortStage[field] = order;
@@ -193,7 +223,7 @@ const getAllPostsService = async (
       userLike: 0,
       likes: 0,
       comments: 0,
-      'user.password': 0,
+      "user.password": 0,
       userId: 0,
     },
   });
@@ -229,12 +259,12 @@ const getAllPostsService = async (
 
   let boostIndex = 0;
   result.forEach((post: any, index: number) => {
-    combinedFeed.push({ type: 'post', data: post });
+    combinedFeed.push({ type: "post", data: post });
     if (
       (index + 1) % injectionInterval === 0 &&
       boostIndex < boostsForThisPage.length
     ) {
-      combinedFeed.push({ type: 'boost', data: boostsForThisPage[boostIndex] });
+      combinedFeed.push({ type: "boost", data: boostsForThisPage[boostIndex] });
       boostIndex++;
     }
   });
@@ -255,29 +285,29 @@ const getSinglePostService = async (id: string, user?: JwtPayload) => {
     },
     {
       $lookup: {
-        from: 'users',
-        localField: 'userId',
-        foreignField: '_id',
-        as: 'user',
+        from: "users",
+        localField: "userId",
+        foreignField: "_id",
+        as: "user",
       },
     },
     {
-      $unwind: '$user',
+      $unwind: "$user",
     },
     {
       $lookup: {
-        from: 'likes',
-        localField: '_id',
-        foreignField: 'postId',
-        as: 'likes',
+        from: "likes",
+        localField: "_id",
+        foreignField: "postId",
+        as: "likes",
       },
     },
     {
       $lookup: {
-        from: 'comments',
-        localField: '_id',
-        foreignField: 'postId',
-        as: 'comments',
+        from: "comments",
+        localField: "_id",
+        foreignField: "postId",
+        as: "comments",
       },
     },
   ];
@@ -285,36 +315,38 @@ const getSinglePostService = async (id: string, user?: JwtPayload) => {
   if (user) {
     pipeline.push({
       $lookup: {
-        from: 'likes',
-        let: { postId: '$_id' },
+        from: "likes",
+        let: { postId: "$_id" },
         pipeline: [
           {
             $match: {
               $expr: {
                 $and: [
-                  { $eq: ['$postId', '$$postId'] },
-                  { $eq: ['$userId', new mongoose.Types.ObjectId(user.userId)] },
+                  { $eq: ["$postId", "$$postId"] },
+                  {
+                    $eq: ["$userId", new mongoose.Types.ObjectId(user.userId)],
+                  },
                 ],
               },
             },
           },
         ],
-        as: 'userLike',
+        as: "userLike",
       },
     });
     pipeline.push({
       $addFields: {
-        isLiked: { $gt: [{ $size: '$userLike' }, 0] },
-        likeCount: { $size: '$likes' },
-        commentCount: { $size: '$comments' },
+        isLiked: { $gt: [{ $size: "$userLike" }, 0] },
+        likeCount: { $size: "$likes" },
+        commentCount: { $size: "$comments" },
       },
     });
   } else {
     pipeline.push({
       $addFields: {
         isLiked: false,
-        likeCount: { $size: '$likes' },
-        commentCount: { $size: '$comments' },
+        likeCount: { $size: "$likes" },
+        commentCount: { $size: "$comments" },
       },
     });
   }
@@ -324,7 +356,7 @@ const getSinglePostService = async (id: string, user?: JwtPayload) => {
       userLike: 0,
       likes: 0,
       comments: 0,
-      'user.password': 0,
+      "user.password": 0,
       userId: 0,
     },
   });
@@ -332,7 +364,7 @@ const getSinglePostService = async (id: string, user?: JwtPayload) => {
   const result = await Post.aggregate(pipeline);
 
   if (result.length === 0) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Post not found');
+    throw new AppError(StatusCodes.NOT_FOUND, "Post not found");
   }
 
   return result[0];
@@ -348,13 +380,13 @@ const updatePostService = async (
   const post = await Post.findById(id);
 
   if (!post) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Post not found');
+    throw new AppError(StatusCodes.NOT_FOUND, "Post not found");
   }
 
   if (post.userId.toString() !== user.userId) {
     throw new AppError(
       StatusCodes.FORBIDDEN,
-      'You are not authorized to update this post',
+      "You are not authorized to update this post",
     );
   }
 
@@ -375,7 +407,7 @@ const updatePostService = async (
       );
       if (uploadedFile) {
         post.imagesAndVideos.push({
-          type: file.mimetype.startsWith('image') ? 'image' : 'video',
+          type: file.mimetype.startsWith("image") ? "image" : "video",
           url: uploadedFile.secure_url,
         });
       }
@@ -392,13 +424,13 @@ const deletePostService = async (id: string, user: JwtPayload) => {
   const post = await Post.findById(id);
 
   if (!post) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Post not found');
+    throw new AppError(StatusCodes.NOT_FOUND, "Post not found");
   }
 
   if (post.userId.toString() !== user.userId) {
     throw new AppError(
       StatusCodes.FORBIDDEN,
-      'You are not authorized to delete this post',
+      "You are not authorized to delete this post",
     );
   }
 
@@ -423,13 +455,13 @@ const deletePostMediaService = async (
   const post = await Post.findById(postId);
 
   if (!post) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Post not found');
+    throw new AppError(StatusCodes.NOT_FOUND, "Post not found");
   }
 
   if (post.userId.toString() !== user.userId) {
     throw new AppError(
       StatusCodes.FORBIDDEN,
-      'You are not authorized to delete media from this post',
+      "You are not authorized to delete media from this post",
     );
   }
 
