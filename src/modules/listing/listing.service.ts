@@ -98,6 +98,7 @@ const getAllListingsService = async (
 
   const excludeField = ["page", "limit", "sort", "fields", "searchTerm"];
   const filter: Record<string, any> = {};
+  filter.isDeleted = false;
   for (const key in query) {
     if (!excludeField.includes(key)) {
       filter[key] = query[key];

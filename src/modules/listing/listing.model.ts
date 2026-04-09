@@ -6,6 +6,7 @@ const listingSchema = new Schema<IListing>(
     title: { type: String, required: true },
     description: { type: String, required: true },
     price: { type: Number, required: true },
+    isDeleted: {type : Boolean, default: false},
     imagesAndVideos: [
       {
         type: { type: String, enum: ['image', 'video'], required: true },

@@ -18,6 +18,7 @@ export interface IListing {
   title: string;
   description: string;
   price: number;
+  isDeleted: boolean,
   imagesAndVideos: IImageAndVideo[];
   category: ListingCategory;
   condition: string;

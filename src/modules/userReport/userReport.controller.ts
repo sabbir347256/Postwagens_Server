@@ -255,7 +255,15 @@ export const reportUser = async (req: Request, res: Response) => {
 
 export const getAllReports = async (req: Request, res: Response) => {
   try {
-    const reports = await ReportedUserModel.find()
+    const { fullName } = req.query;
+
+    const query: any = {};
+
+    if (fullName) {
+      query["userInfo.fullName"] = new RegExp(fullName as string, "i");
+    }
+
+    const reports = await ReportedUserModel.find(query)
       .populate("userInfo")
       .exec();
 
@@ -267,6 +275,33 @@ export const getAllReports = async (req: Request, res: Response) => {
       message: "Reports retrieved successfully",
       data: reports,
     });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const deleteReport = async (req: Request, res: Response) => {
+  try {
+    const { _id } = req.query; 
+    const report = await ReportedUserModel.findById(_id);
+
+    if (!report) {
+      return res.status(404).json({ message: "Report not found" });
+    }
+
+    if (report.type === "post") {
+      await Post.findByIdAndUpdate(report.id, { isDeleted: true });
+      return res.status(200).json({ message: "Post marked as deleted" });
+    } else if (report.type === "listing") {
+      await Listing.findByIdAndUpdate(report.id, { isDeleted: true });
+      return res.status(200).json({ message: "Listing marked as deleted" });
+    } else if (report.type === "user") {
+      await User.findByIdAndUpdate(report.userId, { isDeleted: true });
+      return res.status(200).json({ message: "User marked as deleted" });
+    }
+
+    return res.status(400).json({ message: "Invalid report type" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });

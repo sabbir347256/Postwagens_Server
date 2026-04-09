@@ -1,19 +1,19 @@
-import AppError from '../../errorHelpers/AppError';
-import { IAuthProvider, IsActive, IUser, Role } from './user.interface';
-import User from './user.model';
-import { randomOTPGenerator } from '../../utils/randomOTPGenerator';
-import { StatusCodes } from 'http-status-codes';
-import { JwtPayload } from 'jsonwebtoken';
-import mongoose, { Types } from 'mongoose';
-import { QueryBuilder } from '../../utils/QueryBuilder';
+import AppError from "../../errorHelpers/AppError";
+import { IAuthProvider, IsActive, IUser, Role } from "./user.interface";
+import User from "./user.model";
+import { randomOTPGenerator } from "../../utils/randomOTPGenerator";
+import { StatusCodes } from "http-status-codes";
+import { JwtPayload } from "jsonwebtoken";
+import mongoose, { Types } from "mongoose";
+import { QueryBuilder } from "../../utils/QueryBuilder";
 // import { NotificationPreference } from '../notifications/notification.model';
 // import BlockedUser from '../BlockedUser/blocked.model';
-import env from '../../config/env';
+import env from "../../config/env";
 // import axios from 'axios';
-import { redisClient } from '../../config/redis.config';
-import { deleteImageFromCLoudinary } from '../../config/cloudinary.config';
-import { Follow } from '../follow/follow.model';
-import Post from '../post/post.model';
+import { redisClient } from "../../config/redis.config";
+import { deleteImageFromCLoudinary } from "../../config/cloudinary.config";
+import { Follow } from "../follow/follow.model";
+import Post from "../post/post.model";
 
 // CREATE USER
 const createUserService = async (payload: Partial<IUser>) => {
@@ -21,12 +21,12 @@ const createUserService = async (payload: Partial<IUser>) => {
 
   const isUser = await User.findOne({ email });
   if (isUser) {
-    throw new AppError(400, 'User aleready exist. Please login!');
+    throw new AppError(400, "User aleready exist. Please login!");
   }
 
   // Save User Auth
   const authUser: IAuthProvider = {
-    provider: 'credentials',
+    provider: "credentials",
     providerId: payload.email as string,
   };
 
@@ -39,24 +39,24 @@ const createUserService = async (payload: Partial<IUser>) => {
   const creatUser = await User.create(userPayload); // Create user
 
   // Notification preference setup can be added here in future
-//   await NotificationPreference.create({
-//     user: new mongoose.Types.ObjectId(creatUser?._id),
-//     channel: {
-//       push: true,
-//       email: true,
-//       inApp: true,
-//     },
-//     directmsg: true,
-//     app: {
-//       product_updates: true,
-//       special_offers: true,
-//     },
-//     event: {
-//       event_invitations: true,
-//       event_changes: true,
-//       event_reminders: true,
-//     },
-//   });
+  //   await NotificationPreference.create({
+  //     user: new mongoose.Types.ObjectId(creatUser?._id),
+  //     channel: {
+  //       push: true,
+  //       email: true,
+  //       inApp: true,
+  //     },
+  //     directmsg: true,
+  //     app: {
+  //       product_updates: true,
+  //       special_offers: true,
+  //     },
+  //     event: {
+  //       event_invitations: true,
+  //       event_changes: true,
+  //       event_reminders: true,
+  //     },
+  //   });
 
   return creatUser;
 };
@@ -64,14 +64,9 @@ const createUserService = async (payload: Partial<IUser>) => {
 // GET ALL USERS
 const getAllUserService = async (
   query: Record<string, string>,
-  userId: string
+  userId: string,
 ) => {
-//   const getBlockList = await BlockedUser.find({ user: userId }).select(
-//     'blockedUser'
-//   );
-//   const blockedUsersIds = getBlockList.map((block) => block.blockedUser);
-//   const filter = { _id: { $nin: blockedUsersIds } };
-const filter = {};
+  const filter = {isDeleted: false};
 
   const queryBuilder = new QueryBuilder(User.find(filter), query);
 
@@ -99,39 +94,39 @@ const getMeService = async (userId: string) => {
     // Stage 2: Lookup for people the user is following
     {
       $lookup: {
-        from: 'follows',
-        localField: '_id',
-        foreignField: 'follower',
-        as: 'following',
+        from: "follows",
+        localField: "_id",
+        foreignField: "follower",
+        as: "following",
       },
     },
 
     // Stage 3: Lookup for people following the user
     {
       $lookup: {
-        from: 'follows',
-        localField: '_id',
-        foreignField: 'following',
-        as: 'followers',
+        from: "follows",
+        localField: "_id",
+        foreignField: "following",
+        as: "followers",
       },
     },
 
     // Lookup for user's listings
     {
       $lookup: {
-        from: 'listings',
-        localField: '_id',
-        foreignField: 'sellerId',
-        as: 'listings',
+        from: "listings",
+        localField: "_id",
+        foreignField: "sellerId",
+        as: "listings",
       },
     },
 
     // Stage 4: Add counts
     {
       $addFields: {
-        followingCount: { $size: '$following' },
-        followerCount: { $size: '$followers' },
-        listingCount: { $size: '$listings' },
+        followingCount: { $size: "$following" },
+        followerCount: { $size: "$followers" },
+        listingCount: { $size: "$listings" },
       },
     },
 
@@ -148,7 +143,7 @@ const getMeService = async (userId: string) => {
   ]);
 
   if (!user || user.length === 0) {
-    throw new AppError(404, 'User not found');
+    throw new AppError(404, "User not found");
   }
 
   // Normalize the date to remove time part
@@ -161,13 +156,11 @@ const getMeService = async (userId: string) => {
   const todayNormalized = normalizeDate(new Date());
 
   // Update user activity for the day
-//   await UserActivity.updateOne(
-//     { user: new Types.ObjectId(userId), date: todayNormalized }, // match user + normalized date
-//     { $setOnInsert: { createdAt: new Date() } }, // insert only if missing
-//     { upsert: true } // create if missing
-//   );
-
-
+  //   await UserActivity.updateOne(
+  //     { user: new Types.ObjectId(userId), date: todayNormalized }, // match user + normalized date
+  //     { $setOnInsert: { createdAt: new Date() } }, // insert only if missing
+  //     { upsert: true } // create if missing
+  //   );
 
   return user[0];
 };
@@ -178,7 +171,7 @@ const getProfileService = async (
   currentUserId?: string,
 ) => {
   if (!profileUserId) {
-    throw new AppError(400, 'User ID is required');
+    throw new AppError(400, "User ID is required");
   }
 
   const _user = await User.aggregate([
@@ -188,51 +181,50 @@ const getProfileService = async (
     // Stage 2: Lookup for people the user is following
     {
       $lookup: {
-        from: 'follows',
-        localField: '_id',
-        foreignField: 'follower',
-        as: 'following',
+        from: "follows",
+        localField: "_id",
+        foreignField: "follower",
+        as: "following",
       },
     },
 
     // Stage 3: Lookup for people following the user
     {
       $lookup: {
-        from: 'follows',
-        localField: '_id',
-        foreignField: 'following',
-        as: 'followers',
+        from: "follows",
+        localField: "_id",
+        foreignField: "following",
+        as: "followers",
       },
     },
 
     // Stage 4: Lookup for user's posts
     {
       $lookup: {
-        from: 'posts',
-        localField: '_id',
-        foreignField: 'userId',
-        as: 'posts',
+        from: "posts",
+        localField: "_id",
+        foreignField: "userId",
+        as: "posts",
       },
     },
-
 
     // Lookup for users's listing
     {
       $lookup: {
-        from: 'listings',
-        localField: '_id',
-        foreignField: 'sellerId',
-        as: 'listings',
+        from: "listings",
+        localField: "_id",
+        foreignField: "sellerId",
+        as: "listings",
       },
     },
 
     // Stage 5: Add counts
     {
       $addFields: {
-        followingCount: { $size: '$following' },
-        followerCount: { $size: '$followers' },
-        postCount: { $size: '$posts' },
-        listingCount: { $size: '$listings' },
+        followingCount: { $size: "$following" },
+        followerCount: { $size: "$followers" },
+        postCount: { $size: "$posts" },
+        listingCount: { $size: "$listings" },
       },
     },
 
@@ -250,7 +242,7 @@ const getProfileService = async (
 
   const user = _user[0];
   if (!user) {
-    throw new AppError(404, 'User not found');
+    throw new AppError(404, "User not found");
   }
 
   // Check if the current user is following this user
@@ -271,11 +263,11 @@ const getProfileService = async (
 const userUpdateService = async (
   userId: string,
   payload: Partial<IUser>,
-  decodedToken: JwtPayload
+  decodedToken: JwtPayload,
 ) => {
   const user = await User.findById(userId);
   if (!user) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'User not found!');
+    throw new AppError(StatusCodes.NOT_FOUND, "User not found!");
   }
 
   // USER & ORGANIZER can ONLY update their own profile - Only admin can update others
@@ -298,19 +290,16 @@ const userUpdateService = async (
   if (payload.password) {
     throw new AppError(
       StatusCodes.BAD_REQUEST,
-      "You can't update your password from this route!"
+      "You can't update your password from this route!",
     );
   }
 
   // Role update protection
   if (payload.role) {
-    if (
-      decodedToken.role === Role.USER ||
-      decodedToken.role === Role.ADMIN
-    ) {
+    if (decodedToken.role === Role.USER || decodedToken.role === Role.ADMIN) {
       throw new AppError(
         StatusCodes.FORBIDDEN,
-        'You are not allowed to update roles!'
+        "You are not allowed to update roles!",
       );
     }
   }
@@ -321,13 +310,10 @@ const userUpdateService = async (
     payload?.isDeleted !== undefined ||
     payload?.isVerified !== undefined
   ) {
-    if (
-      decodedToken.role === Role.USER ||
-      decodedToken.role === Role.ADMIN
-    ) {
+    if (decodedToken.role === Role.USER || decodedToken.role === Role.ADMIN) {
       throw new AppError(
         StatusCodes.FORBIDDEN,
-        'You are not allowed to update account status!'
+        "You are not allowed to update account status!",
       );
     }
   }
@@ -341,33 +327,31 @@ const userUpdateService = async (
     if (user.role === Role.ADMIN) {
       throw new AppError(
         StatusCodes.FORBIDDEN,
-        "Admin can't disabled himself!"
+        "Admin can't disabled himself!",
       );
     }
   }
 
   // Update Locations
-  if(payload.location){
+  if (payload.location) {
     user.location = payload.location;
   }
-
-  
 
   // FIELD WHITELISTING for USER & ORGANIZER
   if (decodedToken.role === Role.USER || decodedToken.role === Role.ADMIN) {
     const allowedUpdates = [
-      'fullName',
-      'avatar',
-      'fcmToken',
-      'bio',
-      'location',
+      "fullName",
+      "avatar",
+      "fcmToken",
+      "bio",
+      "location",
     ];
 
     Object.keys(payload).forEach((key) => {
       if (!allowedUpdates.includes(key)) {
         throw new AppError(
           StatusCodes.FORBIDDEN,
-          `You are not allowed to update: ${key}`
+          `You are not allowed to update: ${key}`,
         );
       }
     });
@@ -380,7 +364,7 @@ const userUpdateService = async (
     {
       new: true,
       runValidators: true,
-    }
+    },
   );
 
   return updatedUser;
@@ -390,11 +374,11 @@ const userUpdateService = async (
 const userDeleteService = async (userId: string, decodedToken: JwtPayload) => {
   const user = await User.findById(userId);
   if (!user) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'User not found!');
+    throw new AppError(StatusCodes.NOT_FOUND, "User not found!");
   }
 
   if (user.isDeleted) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'User already deleted!');
+    throw new AppError(StatusCodes.BAD_REQUEST, "User already deleted!");
   }
 
   const allowedRoles = [Role.ADMIN];
@@ -415,20 +399,20 @@ const userDeleteService = async (userId: string, decodedToken: JwtPayload) => {
 const verifyUserService = async (userId: string) => {
   const findUser = await User.findOne({ _id: userId });
   if (!findUser) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'User not found!');
+    throw new AppError(StatusCodes.BAD_REQUEST, "User not found!");
   }
 
-//   const phoneNumber = findUser.phone;
-//   const otp = randomOTPGenerator(100000, 999999);
+  //   const phoneNumber = findUser.phone;
+  //   const otp = randomOTPGenerator(100000, 999999);
 
-//   await redisClient.set(`${phoneNumber}`, otp, {
-//     EX: 300,
-//   });
+  //   await redisClient.set(`${phoneNumber}`, otp, {
+  //     EX: 300,
+  //   });
 
-//    await twilio.messages.create({
-//       to: findUser.phone as string,
-//       body: `Your verification code is: ${otp}. This code will expire in 5 minutes. Do not share this code with anyone.`
-//   });
+  //    await twilio.messages.create({
+  //       to: findUser.phone as string,
+  //       body: `Your verification code is: ${otp}. This code will expire in 5 minutes. Do not share this code with anyone.`
+  //   });
 
   return null;
 };
@@ -439,17 +423,17 @@ const verifyOTPService = async (phoneNumber: string, otp: string) => {
   if (!findUser) {
     throw new AppError(
       StatusCodes.NOT_FOUND,
-      'User not found by this phone number!'
+      "User not found by this phone number!",
     );
   }
 
   if (otp.length !== 6) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'Invalid OTP!');
+    throw new AppError(StatusCodes.BAD_REQUEST, "Invalid OTP!");
   }
 
   const getOTP = await redisClient.get(`${phoneNumber}`);
   if (!getOTP) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'OTP has expired or invalid!');
+    throw new AppError(StatusCodes.BAD_REQUEST, "OTP has expired or invalid!");
   }
 
   if (getOTP !== otp) {
@@ -457,7 +441,7 @@ const verifyOTPService = async (phoneNumber: string, otp: string) => {
   }
 
   if (findUser.isVerified) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'You are already verified!');
+    throw new AppError(StatusCodes.BAD_REQUEST, "You are already verified!");
   }
 
   findUser.isVerified = true;
@@ -469,7 +453,7 @@ const verifyOTPService = async (phoneNumber: string, otp: string) => {
 const purchaseBadgeService = async (userId: string) => {
   const user = await User.findById(userId);
   if (!user) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'User not found!');
+    throw new AppError(StatusCodes.NOT_FOUND, "User not found!");
   }
 
   // Here you would implement the payment logic.
@@ -486,16 +470,19 @@ const purchaseBadgeService = async (userId: string) => {
   return user;
 };
 
-
-const updateSuspendStatusService = async (userId: string, isActive: IsActive, decodedToken: JwtPayload) => {
+const updateSuspendStatusService = async (
+  userId: string,
+  isActive: IsActive,
+  decodedToken: JwtPayload,
+) => {
   const user = await User.findById(userId);
-  
+
   if (!user) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'User not found!');
+    throw new AppError(StatusCodes.NOT_FOUND, "User not found!");
   }
 
   if (user.role === Role.ADMIN) {
-    throw new AppError(StatusCodes.FORBIDDEN, 'Admins cannot be suspended!');
+    throw new AppError(StatusCodes.FORBIDDEN, "Admins cannot be suspended!");
   }
 
   user.isActive = isActive;
@@ -504,8 +491,6 @@ const updateSuspendStatusService = async (userId: string, isActive: IsActive, de
 
   return user;
 };
-
-
 
 // EXPORT ALL SERVICE
 export const userServices = {

@@ -99,9 +99,9 @@ const getAllPostsService = async (
 
   const excludeField = ["page", "limit", "sort", "fields", "searchTerm"];
   const filter: Record<string, any> = {};
-  // filter.isDeleted = false;
+  filter.isDeleted = false;
 
-  // console.log(filter)
+  console.log(filter)
 
   for (const key in query) {
     if (!excludeField.includes(key)) {
