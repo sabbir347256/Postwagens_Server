@@ -4,4 +4,5 @@ export interface ReportedUser {
   report: string;
   blockedId?: string;
   userId?: string;
+  userInfo?: Record<string, any>;
 }

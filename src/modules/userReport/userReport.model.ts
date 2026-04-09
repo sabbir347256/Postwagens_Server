@@ -19,11 +19,14 @@ const reportedUserSchema = new Schema<ReportedUser>(
       type: String,
     },
     userId: {
-      type: String,
+      type: Schema.Types.ObjectId,
+      ref: "user",
+      required: true,
     },
+    userInfo: { type: Schema.Types.Mixed },
   },
   { timestamps: true },
-); 
+);
 
 const ReportedUserModel = mongoose.model<ReportedUser>(
   "ReportedUser",

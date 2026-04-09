@@ -20,6 +20,7 @@ const blockUser = CatchAsync(
 
     const blockerUser = req.user as JwtPayload;
     let blockerID = blockerUser.userId;
+    console.log(blockerID)
 
     const result = await blockedService.blockUser(blockerID, blockedId);
 

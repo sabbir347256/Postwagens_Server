@@ -8,6 +8,7 @@ export type TPost = {
   userId: Types.ObjectId;
   text: string;
   imagesAndVideos?: IImageAndVideo[];
+  isDeleted : boolean
 };
 
 export type PostModel = Model<TPost, Record<string, unknown>>;

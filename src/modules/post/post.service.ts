@@ -11,6 +11,9 @@ import {
 import "../users/user.model";
 import { BoostService } from "../boosts/boost.service";
 import mongoose from "mongoose";
+import BlockedUserModel from "../userBlocked/userBlocked.model";
+import { Comment } from "../comments/comment.model";
+import { Like } from "../likes/like.model";
 
 // Create Post
 const createPostService = async (
@@ -59,7 +62,6 @@ const getPostsByUserIdService = async (userId: string) => {
   return posts;
 };
 
-// Get All Posts
 const getAllPostsService = async (
   query: Record<string, any>,
   user: JwtPayload,
@@ -71,7 +73,6 @@ const getAllPostsService = async (
 
   const pipeline: any[] = [];
 
-  // Join with users
   pipeline.push({
     $lookup: {
       from: "users",
@@ -81,12 +82,10 @@ const getAllPostsService = async (
     },
   });
 
-  // Deconstruct user array
   pipeline.push({
     $unwind: "$user",
   });
 
-  // Text search
   if (searchTerm) {
     pipeline.push({
       $match: {
@@ -98,9 +97,12 @@ const getAllPostsService = async (
     });
   }
 
-  // Other filters (excluding reserved keywords)
   const excludeField = ["page", "limit", "sort", "fields", "searchTerm"];
   const filter: Record<string, any> = {};
+  // filter.isDeleted = false;
+
+  // console.log(filter)
+
   for (const key in query) {
     if (!excludeField.includes(key)) {
       filter[key] = query[key];
@@ -110,7 +112,6 @@ const getAllPostsService = async (
     pipeline.push({ $match: filter });
   }
 
-  // Join with likes to count
   pipeline.push({
     $lookup: {
       from: "likes",
@@ -120,7 +121,6 @@ const getAllPostsService = async (
     },
   });
 
-  // Join with comments to count
   pipeline.push({
     $lookup: {
       from: "comments",
@@ -131,7 +131,6 @@ const getAllPostsService = async (
   });
 
   if (user) {
-    // Join with user's like
     pipeline.push({
       $lookup: {
         from: "likes",
@@ -163,7 +162,7 @@ const getAllPostsService = async (
 
     pipeline.push({
       $lookup: {
-        from: "blockedusers", 
+        from: "blockedusers",
         let: { sellerId: "$user._id" },
         pipeline: [
           {
@@ -187,12 +186,15 @@ const getAllPostsService = async (
       },
     });
 
-    // Filter out blocked listings
     pipeline.push({
       $match: {
-        blocked: { $size: 0 }, // Only show listings that are not blocked
+        $or: [
+          { blocked: { $size: 0 } },
+          { type: { $ne: "boost" } },
+        ],
       },
     });
+    
   } else {
     pipeline.push({
       $addFields: {
@@ -203,7 +205,6 @@ const getAllPostsService = async (
     });
   }
 
-  // Sorting
   const sortStage: Record<string, any> = {};
   if (sort) {
     const [field, order] = sort.startsWith("-")
@@ -213,11 +214,9 @@ const getAllPostsService = async (
     pipeline.push({ $sort: sortStage });
   }
 
-  // Pagination
   pipeline.push({ $skip: (page - 1) * limit });
   pipeline.push({ $limit: limit });
 
-  // Projection
   pipeline.push({
     $project: {
       userLike: 0,
@@ -238,7 +237,6 @@ const getAllPostsService = async (
     totalPages: Math.ceil(total / limit),
   };
 
-  // --- Improved Algorithm for Boost Injection ---
   let activeBoosts = await BoostService.getActiveBoosts();
 
   const shuffleArray = (array: any[]) => {
@@ -276,6 +274,119 @@ const getAllPostsService = async (
 };
 
 // Get Single Post
+
+// const getAllPostsService = async (
+//   query: Record<string, any>,
+//   user: JwtPayload,
+// ) => {
+//   const page = Number(query.page) || 1;
+//   const limit = Number(query.limit) || 10;
+//   const sort = query.sort || "-createdAt";
+//   const searchTerm = query.searchTerm;
+
+//   const filter: Record<string, any> = {};
+//   const excludeField = ["page", "limit", "sort", "fields", "searchTerm"];
+
+//   for (const key in query) {
+//     if (!excludeField.includes(key)) {
+//       filter[key] = query[key];
+//     }
+//   }
+
+//   let postsQuery = Post.find(filter)
+//     .skip((page - 1) * limit)
+//     .limit(limit)
+//     .sort(sort)
+//     .populate({
+//       path: "userId",
+//       select: "fullName", // Select only necessary fields
+//     });
+
+//   if (searchTerm) {
+//     postsQuery.find({
+//       $or: [
+//         { text: { $regex: searchTerm, $options: "i" } },
+//         { "user.fullName": { $regex: searchTerm, $options: "i" } },
+//       ],
+//     });
+//   }
+
+//   // Check for blocked users if a `user` is provided
+//   let blockedUserIds: string[] = [];
+//   if (user) {
+//     // Fetch blocked users for the current user
+//     const blockedUsers = await BlockedUserModel.find({
+//       blockerUserid: user.userId,
+//       isBlocked: true,
+//     }).select("blockedUserid");
+
+//     blockedUserIds = blockedUsers.map((blockedUser) =>
+//       blockedUser.blockedUserid.toString(),
+//     );
+
+//     // Exclude posts from blocked users
+//     postsQuery = postsQuery.where("userId").nin(blockedUserIds);
+//   }
+
+//   const posts = await postsQuery;
+
+//   const total = await Post.countDocuments(filter);
+//   const meta = {
+//     page,
+//     limit,
+//     total,
+//     totalPages: Math.ceil(total / limit),
+//   };
+
+//   // Additional logic for likes and comments counts can be handled like this:
+//   const postsWithCounts = await Promise.all(
+//     posts.map(async (post) => {
+//       const likeCount = await Like.countDocuments({ postId: post._id });
+//       const commentCount = await Comment.countDocuments({ postId: post._id });
+//       const isLiked = user
+//         ? await Like.exists({ postId: post._id, userId: user.userId })
+//         : false;
+
+//       return {
+//         ...post.toObject(),
+//         likeCount,
+//         commentCount,
+//         isLiked,
+//       };
+//     }),
+//   );
+
+//   // This assumes that boosts can be retrieved without aggregation as well
+//   const activeBoosts = await BoostService.getActiveBoosts();
+//   const boostsPerPage = Math.floor(limit / 1);
+//   const startBoostIndex = (page - 1) * boostsPerPage;
+//   const endBoostIndex = startBoostIndex + boostsPerPage;
+//   const boostsForThisPage = activeBoosts.slice(startBoostIndex, endBoostIndex);
+
+//   let combinedFeed :any = [];
+//   let boostIndex = 0;
+  
+//   postsWithCounts.forEach((post, index) => {
+//     // Ensure we skip posts from blocked users
+//     if (blockedUserIds.includes(post.userId.toString())) return;
+
+//     combinedFeed.push({ type: "post", data: post });
+    
+//     // Ensure we skip boosts from blocked users
+//     if ((index + 1) % 1 === 0 && boostIndex < boostsForThisPage.length) {
+//       const boost = boostsForThisPage[boostIndex];
+
+//       combinedFeed.push({ type: "boost", data: boost });
+//       boostIndex++;
+//     }
+//   });
+
+//   return {
+//     meta,
+//     result: combinedFeed,
+//   };
+// };
+
 const getSinglePostService = async (id: string, user?: JwtPayload) => {
   const pipeline: any[] = [
     {

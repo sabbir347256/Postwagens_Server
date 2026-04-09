@@ -4,6 +4,7 @@ import { TPost } from './post.interface';
 const postSchema = new Schema<TPost>(
   {
     userId: { type: Schema.Types.ObjectId, ref: 'user', required: true },
+    isDeleted : {type: Boolean, default: false},
     text: { type: String, required: true },
     imagesAndVideos: [
       {
