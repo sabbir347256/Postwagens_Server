@@ -13,6 +13,8 @@ import { Follow } from "../follow/follow.model";
 import { NotificationService } from "../notifications/notifications.service";
 import { NotificationType } from "../notifications/notifications.interface";
 import BlockedUserModel from "../userBlocked/userBlocked.model";
+import { Boost } from "../boosts/boost.model";
+import { Bookmark } from "../bookmarks/bookmark.model";
 
 // Create Listing
 const createListingService = async (
@@ -181,11 +183,11 @@ const getAllListingsService = async (
 
     pipeline.push({
       $match: {
-        blocked: { $size: 0 }, 
+        blocked: { $size: 0 },
       },
     });
 
-       pipeline.push({
+    pipeline.push({
       $lookup: {
         from: "reportedusers",
         let: { listingID: "$_id" },
@@ -194,8 +196,8 @@ const getAllListingsService = async (
             $match: {
               $expr: {
                 $and: [
-                  { $eq: ["$id", "$$listingID"] },  // Matching the listing ID with reported users
-                  { $eq: ["$type", "listing"] },     // Ensure it is of type "listing"
+                  { $eq: ["$id", "$$listingID"] }, // Matching the listing ID with reported users
+                  { $eq: ["$type", "listing"] }, // Ensure it is of type "listing"
                 ],
               },
             },
@@ -208,7 +210,7 @@ const getAllListingsService = async (
     // Filter out reported listings (only show listings that are not reported)
     pipeline.push({
       $match: {
-        reported: { $size: 0 }, 
+        reported: { $size: 0 },
       },
     });
   } else {
@@ -378,7 +380,6 @@ const updateListingService = async (
   return updatedListing;
 };
 
-// Delete Listing
 const deleteListingService = async (id: string, user: JwtPayload) => {
   const listing = await Listing.findById(id);
 
@@ -393,7 +394,6 @@ const deleteListingService = async (id: string, user: JwtPayload) => {
     );
   }
 
-  // Delete images from Cloudinary before deleting the listing
   if (listing.imagesAndVideos && listing.imagesAndVideos.length > 0) {
     for (const image of listing.imagesAndVideos) {
       await deleteImageFromCLoudinary(image.url);
@@ -402,10 +402,13 @@ const deleteListingService = async (id: string, user: JwtPayload) => {
 
   await Listing.findByIdAndDelete(id);
 
+  await Boost.deleteMany({ listingId: id });
+
+  await Bookmark.deleteMany({ listingId: id });
+
   return null;
 };
 
-// delete listing media service
 const deleteListingMediaService = async (
   listingId: string,
   mediaUrl: string,
@@ -424,10 +427,8 @@ const deleteListingMediaService = async (
     );
   }
 
-  // Delete image from Cloudinary
   await deleteImageFromCLoudinary(mediaUrl);
 
-  // Remove media from post
   const updatedImagesAndVideos = (listing.imagesAndVideos || []).filter(
     (media) => decodeURIComponent(media.url) !== mediaUrl,
   );
@@ -441,7 +442,6 @@ const deleteListingMediaService = async (
   return updatedListing;
 };
 
-// get listing analytics service
 const getListingAnalyticsService = async (id: string) => {
   const listing = await Listing.findById(id);
 
